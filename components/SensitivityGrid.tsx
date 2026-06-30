@@ -14,10 +14,10 @@ export function SensitivityGrid({ principal, rate, tenure }: Props) {
   const { rates, tenures, cells } = grid;
 
   const allEmis = cells.flatMap((row) => row.map((c) => c.emi));
-  const lo = Math.min(...allEmis);
-  const hi = Math.max(...allEmis);
+  const lo = allEmis.length > 0 ? Math.min(...allEmis) : 0;
+  const hi = allEmis.length > 0 ? Math.max(...allEmis) : 0;
   const heat = (v: number) => {
-    if (hi === lo) return 0;
+    if (!Number.isFinite(v) || hi === lo) return 0;
     return (v - lo) / (hi - lo); // 0..1
   };
 
@@ -54,8 +54,10 @@ export function SensitivityGrid({ principal, rate, tenure }: Props) {
                 <td className="p-2 text-muted font-medium border-t border-border">{t}m</td>
                 {cells[i].map((c) => {
                   const h = heat(c.emi);
-                  // higher EMI = warmer color (interest pain)
-                  const bg = `color-mix(in srgb, var(--warning) ${(h * 25).toFixed(1)}%, var(--surface))`;
+                  // higher EMI = warmer color (interest pain). Use rgba so it
+                  // works on every browser (color-mix() is Safari 16.2+).
+                  const alpha = (h * 0.22).toFixed(3);
+                  const bg = `rgba(217, 119, 6, ${alpha})`; // matches --warning hue
                   return (
                     <td
                       key={`${c.rate}-${c.tenure}`}

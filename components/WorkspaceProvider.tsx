@@ -133,7 +133,13 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const [presenceMap, setPresenceMap] = useState<Map<string, PresenceEntry>>(new Map());
 
   const broadcast = useCallback((msg: SyncMessage) => {
-    channelRef.current?.postMessage(msg);
+    const ch = channelRef.current;
+    if (!ch) return;
+    try {
+      ch.postMessage(msg);
+    } catch (err) {
+      console.warn("[emi] broadcast failed:", err);
+    }
   }, []);
 
   /** Applies a state update locally and broadcasts. Pushes the previous state onto undo history. */
@@ -184,8 +190,20 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const ch = new BroadcastChannel(CHANNEL_NAME);
-    channelRef.current = ch;
+    // BroadcastChannel needs iOS 15.4+ / modern Chromium / FF — fall back gracefully
+    // on older browsers so the calculator still works (just without cross-tab sync).
+    let ch: BroadcastChannel | null = null;
+    if (typeof BroadcastChannel !== "undefined") {
+      try {
+        ch = new BroadcastChannel(CHANNEL_NAME);
+        channelRef.current = ch;
+      } catch (err) {
+        console.warn("[emi] BroadcastChannel unavailable — cross-tab sync disabled.", err);
+        channelRef.current = null;
+      }
+    } else {
+      console.warn("[emi] BroadcastChannel API not supported in this browser — cross-tab sync disabled.");
+    }
 
     // local presence entry for self
     setPresenceMap((m) => {
@@ -193,6 +211,11 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       next.set(tabId, { id: tabId, label: "?", bornAt, lastSeen: Date.now() });
       return next;
     });
+
+    if (!ch) {
+      // no channel — skip heartbeats; user still sees a working single-tab calculator
+      return;
+    }
 
     ch.onmessage = (ev: MessageEvent<SyncMessage>) => {
       const msg = ev.data;

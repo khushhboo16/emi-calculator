@@ -183,7 +183,8 @@ table.amort th {
   letter-spacing: 0.04em;
 }
 table.amort tr.break-even td {
-  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+  /* color-mix needs Safari 16.2+ — rgba fallback works everywhere */
+  background: rgba(79, 70, 229, 0.08);
   font-weight: 600;
 }
 table.amort tr.break-even td:first-child::before {
